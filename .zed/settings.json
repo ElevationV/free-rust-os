@@ -1,0 +1,16 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "cargo": {
+          "target": "thumbv7m-none-eabi"
+        },
+        "check": {
+          "command": "check",
+          "allTargets": false,
+          "extraArgs": ["--target", "thumbv7m-none-eabi"]
+        }
+      }
+    }
+  }
+}
