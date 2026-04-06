@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::kernel::{list::ListItem, types::{StackType, TickType, UBaseType}};
+use crate::rtos::kernel::{list::ListItem, types::{StackType, TickType, UBaseType}};
+use crate::rtos::port;
 
 #[repr(C)]
 pub struct TCB {
@@ -51,7 +52,7 @@ impl TCB {
     
         // initialize stack
         let top = stack.add(stack_depth - 1);
-        self.top_of_stack = crate::port::cortex_m3::initialise_stack(
+        self.top_of_stack = port::initialise_stack(
             top, task_fn, param
         );
     }

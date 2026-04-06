@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::kernel::types::StackType;
+use crate::rtos::kernel::types::StackType;
 use core::arch::{naked_asm};
 
 const INITIAL_XPSR: StackType = 0x01000000;
@@ -102,16 +102,18 @@ pub unsafe fn enable_interrupts() {
     );
 }
 
+pub unsafe fn instruction_sync() {
+    core::arch::asm!("isb", options(nostack));
+}
+
 #[unsafe(naked)]
 pub unsafe extern "C" fn start_first_task() {
     naked_asm!(
-        /*
         "ldr r0, = 0xE000ED08",
         "ldr r0, [r0]",
         "ldr r0, [r0]",
         "msr msp, r0",
-         */
-        
+
         "cpsie i",
         "cpsie f",
         "dsb",
@@ -136,7 +138,7 @@ pub unsafe extern "C" fn svc_handler() {
         "msr basepri, r0",
         "orr r14, r14, #0xD",
         "bx r14",
-        current_tcb = sym crate::kernel::scheduler::CURRENT_TCB,
+        current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
     )
 }
 
@@ -150,6 +152,7 @@ pub unsafe extern "C" fn pend_sv_handler() {
         "ldr r2, [r3]",
         "stmdb r0!, {{r4-r11}}",
         "str r0, [r2]",
+        
         "stmdb sp!, {{r3, r14}}",
         "mov r0, #{max_pri}",
         "msr basepri, r0",
@@ -159,6 +162,7 @@ pub unsafe extern "C" fn pend_sv_handler() {
         "mov r0, #0",
         "msr basepri, r0",
         "ldmia sp!, {{r3, r14}}",
+        
         "ldr r1, [r3]",
         "ldr r0, [r1]",
         "ldmia r0!, {{r4-r11}}",
@@ -166,13 +170,13 @@ pub unsafe extern "C" fn pend_sv_handler() {
         "isb",
         "bx r14",
         "nop",
-        current_tcb = sym crate::kernel::scheduler::CURRENT_TCB,
-        max_pri = const crate::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
-        switch = sym crate::kernel::scheduler::switch_context,
+        current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
+        max_pri = const crate::rtos::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
+        switch = sym crate::rtos::kernel::scheduler::switch_context,
     )
 }
 
 #[export_name = "SysTick"]
 pub unsafe extern "C" fn sys_tick_handler() {
-    crate::kernel::scheduler::tick();
+    crate::rtos::kernel::scheduler::tick();
 }
