@@ -1,25 +1,25 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::types::StackType;
+use crate::rtos::kernel::types::{StackType, MAX_SYSCALL_INTERRUPT_PRIORITY};
 use core::arch::{naked_asm};
 
-const INITIAL_XPSR: StackType = 0x01000000;
-const START_ADDRESS_MASK: StackType = 0xfffffffe;
+const INITIAL_XPSR: StackType = 0x01000000; // xPSR: Process State Register
+const START_ADDRESS_MASK: StackType = 0xFFFFFFFE;
 
-const NVIC_SYSPRI2: *mut u32 = 0xe000ed20 as *mut u32;
-const NVIC_PENDSV_PRI: u32 = (255u32) << 16;
-const NVIC_SYSTICK_PRI: u32 = (255u32) << 24;
+const NVIC_SYSPRI2: *mut u32 = 0xE000ED20 as *mut u32; // System Handler Priority Register 2
+const NVIC_PENDSV_PRI: u32 = (255u32) << 16;  // PendSV Priority
+const NVIC_SYSTICK_PRI: u32 = (255u32) << 24; // SysTick Priority
 
-const NVIC_INT_CTRL: *mut u32 = 0xe000ed04 as *mut u32;
+const NVIC_INT_CTRL: *mut u32 = 0xE000ED04 as *mut u32; // ICSR: Interrupt Control and State Register
 const PENDSVSET_BIT: u32 = 1 << 28;
 
-const SYSTICK_CTRL: *mut u32 = 0xe000e010 as *mut u32;
-const SYSTICK_LOAD: *mut u32 = 0xe000e014 as *mut u32;
-const SYSTICK_ENABLE_BIT: u32 = 1 << 0;
-const SYSTICK_INT_BIT: u32 = 1 << 1;
-const SYSTICK_CLK_BIT: u32 = 1 << 2;
+const SYSTICK_CTRL: *mut u32 = 0xE000E010 as *mut u32; // CSR: Comtrol and Status Register
+const SYSTICK_LOAD: *mut u32 = 0xE000E014 as *mut u32; // RR: Reload Register
+const SYSTICK_ENABLE_BIT: u32 = 1 << 0; // enable sys tick
+const SYSTICK_INT_BIT: u32 = 1 << 1;    // allow interrupt
+const SYSTICK_CLK_BIT: u32 = 1 << 2;    // clock source
 
-static mut CRITICAL_NESTING: u32 = 0xaaaaaaaa;
+static mut CRITICAL_NESTING: u32 = 0xaaaaaaaa; 
 
 
 unsafe fn task_exit_error() -> ! {
@@ -55,11 +55,11 @@ pub unsafe fn initialise_stack(
 }
 
 pub unsafe fn start_scheduler() {
-    // 设置 PendSV 和 SysTick 为最低优先级
+    CRITICAL_NESTING = 0;
+    // set PendSV and SysTick lowest priority
     NVIC_SYSPRI2.write_volatile(NVIC_SYSPRI2.read_volatile() | NVIC_PENDSV_PRI);
     NVIC_SYSPRI2.write_volatile(NVIC_SYSPRI2.read_volatile() | NVIC_SYSTICK_PRI);
 
-    // 配置 SysTick 每 1000 个时钟周期触发一次
     SYSTICK_LOAD.write_volatile(1000 - 1);
     SYSTICK_CTRL.write_volatile(SYSTICK_CLK_BIT | SYSTICK_INT_BIT | SYSTICK_ENABLE_BIT);
 
@@ -89,7 +89,7 @@ pub unsafe fn disable_interrupts() {
         "msr basepri, r0",
         "dsb",
         "isb",
-        max_pri = const 191u32,
+        max_pri = const MAX_SYSCALL_INTERRUPT_PRIORITY,
         out("r0") _,
     );
 }

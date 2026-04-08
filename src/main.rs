@@ -16,11 +16,9 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 static mut TASK1_STACK: [StackType; 256] = [0; 256];
 static mut TASK2_STACK: [StackType; 256] = [0; 256];
-static mut IDLE_STACK: [StackType; 128] = [0; 128];
 
 static mut TASK1_TCB: TCB = TCB::new();
 static mut TASK2_TCB: TCB = TCB::new();
-static mut IDLE_TCB: TCB = TCB::new();
 
 #[entry]
 fn main() -> ! {
@@ -38,12 +36,6 @@ fn main() -> ! {
             &raw mut TASK2_TCB,
         );
         
-        rtos::scheduler::create_task(
-            idle_task, "Idle", 0,
-            &raw mut IDLE_STACK[0] as *mut StackType, 128,
-            &raw mut IDLE_TCB,
-        );
-
         rtos::scheduler::start();
     }
     loop {}
@@ -61,8 +53,4 @@ unsafe extern "C" fn task2(_param: *mut ()) {
         hprintln!("Task2 running").ok();
         rtos::scheduler::task_delay(10);
     }
-}
-
-unsafe extern "C" fn idle_task(_param: *mut ()) {
-    loop {}
 }

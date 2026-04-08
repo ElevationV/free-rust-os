@@ -1,6 +1,6 @@
 #![allow(unused)]
-pub mod kernel;
-pub mod port;
+pub(crate) mod kernel;
+pub(crate) mod port;
 
 pub use kernel::*;
 pub use port::*;
