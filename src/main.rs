@@ -44,13 +44,13 @@ fn main() -> ! {
 unsafe extern "C" fn task1(_param: *mut ()) {
     loop {
         hprintln!("Task1 running").ok();
-        rtos::scheduler::task_delay(10);
+        rtos::scheduler::task_delay(100000);
     }
 }
 
 unsafe extern "C" fn task2(_param: *mut ()) {
     loop {
         hprintln!("Task2 running").ok();
-        rtos::scheduler::task_delay(10);
+        rtos::scheduler::task_delay(10000);
     }
 }
