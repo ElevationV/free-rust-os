@@ -18,8 +18,6 @@ pub static mut READY_LISTS: [List<TCB>; 5] = [
 pub static mut IDLE_TCB: TCB = TCB::new();
 pub static mut IDLE_STACK: [StackType; 256] = [0; 256];
 
-static mut SLICE_COUNTER: TickType = 0;
-
 unsafe extern "C" fn idle_task(_param: *mut ()) {
     loop {
     }
@@ -112,18 +110,19 @@ pub(crate) unsafe fn tick() {
     loop {
         let end_ptr = &raw mut DELAY_LIST.list_end as *mut ListItem<TCB>;
         let head = (*end_ptr).next;
+        // delay list is empty or No task in delay list is ready
         if head == end_ptr || (*head).value > TICK_COUNT {
             break;
         }
-
+        // remove delay task from delay list
         let tcb = (*head).owner as *mut TCB;
         (*head).remove_in_list();
-
+        // put task into ready lists
         (*head).value = (*tcb).priority as TickType;
         let priority = (*tcb).priority;
         READY_LISTS[priority as usize].insert_end(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority);
-        
+        // higher priority ready
         if priority >= (*CURRENT_TCB).priority {
             need_switch = true;
         }
@@ -131,18 +130,13 @@ pub(crate) unsafe fn tick() {
 
     if USE_TIME_SLICING {
         let priority = (*CURRENT_TCB).priority;
+        // same priority tasks switch each tick
         if READY_LISTS[priority as usize].items_num > 1 {
-            SLICE_COUNTER += 1;
-            if SLICE_COUNTER >= TIME_SLICE {
-                SLICE_COUNTER = 0;
-                need_switch = true;
-            }
-        } else {
-            SLICE_COUNTER = 0;
+            need_switch = true;
         }
     }
 
-    if need_switch || !USE_TIME_SLICING {
+    if need_switch{
         port::trigger_pendsv();
     }
 }
