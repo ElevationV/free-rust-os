@@ -3,6 +3,15 @@
 use crate::rtos::kernel::{list::ListItem, types::{StackType, TickType, UBaseType}};
 use crate::rtos::port;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum TaskState{
+    Ready,
+    Running,
+    Delayed,
+    Suspended, 
+    None
+}
+
 #[repr(C)]
 pub struct TCB {
     pub top_of_stack: *mut StackType,
@@ -10,7 +19,8 @@ pub struct TCB {
     pub stack: *mut StackType,
     pub name: [u8; 16],
     pub ticks_to_delay: TickType,
-    pub priority: UBaseType
+    pub priority: UBaseType,
+    pub state: TaskState
 }
 
 impl TCB {
@@ -21,7 +31,8 @@ impl TCB {
             stack: core::ptr::null_mut(),
             name: [0u8; 16],
             ticks_to_delay: 0,
-            priority: 0,
+            priority: 0, 
+            state: TaskState::None 
         }
     }
     
