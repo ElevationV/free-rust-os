@@ -62,6 +62,9 @@ impl TCB {
         self.state_list_item.owner = self_ptr;
     
         // initialize stack
+        for i in 0..stack_depth {
+            stack.add(i).write(port::STACK_FILL_BYTE);
+        }
         let top = stack.add(stack_depth - 1);
         self.top_of_stack = port::initialise_stack(
             top, task_fn, param

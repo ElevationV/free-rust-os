@@ -21,6 +21,12 @@ const SYSTICK_CLK_BIT: u32 = 1 << 2;    // clock source
 
 static mut CRITICAL_NESTING: u32 = 0xaaaaaaaa; 
 
+// Overflow detection
+// 
+// Verify the lowest `STACK_CHECK_WORDS` words of the stack buffer stillc ontain `STACK_FILL_BYTE`
+// If any word has been overwritten, the stack has grown past its allocated space and an overflow is reported.  
+pub const STACK_FILL_BYTE: StackType = 0xA5A5A5A5;
+const STACK_CHECK_WORDS: usize = 4;
 
 unsafe fn task_exit_error() -> ! {
     loop {}
@@ -123,6 +129,21 @@ pub unsafe extern "C" fn start_first_task() {
         "nop"
     )
 }
+
+pub unsafe fn check_stack_overflow(
+    stack_base: *mut StackType, 
+    task_name: &[u8; 16]) {
+    for i in 0..STACK_CHECK_WORDS {
+        if stack_base.add(i).read() != STACK_FILL_BYTE {
+            handle_stack_overflow();
+        }
+    }
+}
+
+fn handle_stack_overflow() {
+    loop{}
+}
+
 
 #[unsafe(naked)]
 #[export_name = "SVCall"]

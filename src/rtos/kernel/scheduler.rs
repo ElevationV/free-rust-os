@@ -211,6 +211,7 @@ pub(crate) unsafe fn select_highest_priority_task() {
 }
 
 pub(crate) unsafe fn switch_context() {
+    port::check_stack_overflow((*CURRENT_TCB).stack, &(*CURRENT_TCB).name);
     // CURRENT_TCB may be changed in `task_suspend` or `task_delay`
     // their state are not Ready, and shouldn't be Ready
     if (*CURRENT_TCB).state == TaskState::Running {
