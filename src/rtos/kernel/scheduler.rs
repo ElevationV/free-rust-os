@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 #![allow(static_mut_refs)]
 
-use crate::rtos::kernel::task::{TCB, TaskState};
-use crate::rtos::kernel::list::{List, ListItem};
-use crate::rtos::kernel::types::{UBaseType, StackType, TickType};
-use crate::rtos::kernel::config::USE_TIME_SLICING;
+use super::task::{TCB, TaskState};
+use super::list::{List, ListItem};
+use super::types::{UBaseType, StackType, TickType};
+use super::config::USE_TIME_SLICING;
+
 use crate::rtos::{list, port};
 
 pub static mut CURRENT_TCB: *mut TCB = core::ptr::null_mut();
@@ -89,6 +90,7 @@ pub unsafe fn create_task(
     READY_LISTS[prio as usize].insert_end(&raw mut (*tcb).state_list_item);
     (*tcb).state = TaskState::Ready;
 }
+
 
 pub unsafe fn task_delay(ticks: TickType) {
     port::disable_interrupts();

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::types::*;
+use super::types::*;
 use core::ptr::null_mut;
 
 #[repr(C)]

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::{list::ListItem, types::{StackType, TickType, UBaseType}};
+use super::list::ListItem;
+use super::types::{StackType, TickType, UBaseType};
 use crate::rtos::port;
 
 #[derive(Clone, Copy, PartialEq)]
