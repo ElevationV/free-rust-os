@@ -65,7 +65,8 @@ pub unsafe fn start_scheduler() {
     // set PendSV and SysTick lowest priority
     NVIC_SYSPRI2.write_volatile(NVIC_SYSPRI2.read_volatile() | NVIC_PENDSV_PRI);
     NVIC_SYSPRI2.write_volatile(NVIC_SYSPRI2.read_volatile() | NVIC_SYSTICK_PRI);
-
+    
+    // set systick cycle
     SYSTICK_LOAD.write_volatile(1000 - 1);
     SYSTICK_CTRL.write_volatile(SYSTICK_CLK_BIT | SYSTICK_INT_BIT | SYSTICK_ENABLE_BIT);
 
@@ -73,6 +74,7 @@ pub unsafe fn start_scheduler() {
 }
 
 
+// construct critical section
 pub unsafe fn enter_critical() {
     disable_interrupts();
     CRITICAL_NESTING += 1;
@@ -87,6 +89,22 @@ pub unsafe fn exit_critical() {
 
 pub unsafe fn trigger_pendsv() {
     NVIC_INT_CTRL.write_volatile(PENDSVSET_BIT);
+}
+
+// check and handle stackoverflow
+pub unsafe fn check_stack_overflow(
+    stack_base: *mut StackType, 
+    task_name: &[u8; 16]) {
+    for i in 0..STACK_CHECK_WORDS {
+        if stack_base.add(i).read() != STACK_FILL_BYTE {
+            handle_stack_overflow();
+        }
+    }
+}
+
+// this function could be customized
+fn handle_stack_overflow() {
+    loop{}
 }
 
 pub unsafe fn disable_interrupts() {
@@ -108,94 +126,84 @@ pub unsafe fn enable_interrupts() {
     );
 }
 
+// isb
 pub unsafe fn instruction_sync() {
     core::arch::asm!("isb", options(nostack));
 }
 
+// set up
 #[unsafe(naked)]
 pub unsafe extern "C" fn start_first_task() {
     naked_asm!(
-        "ldr r0, = 0xE000ED08",
-        "ldr r0, [r0]",
-        "ldr r0, [r0]",
-        "msr msp, r0",
+        "ldr r0, = 0xE000ED08", // r0 = &VTOR
+        "ldr r0, [r0]",         // r0 = VTOR
+        "ldr r0, [r0]",         // r0 = vector_table[0]
+        "msr msp, r0",          // set MSP
 
-        "cpsie i",
-        "cpsie f",
+        "cpsie i",              // enable IRQ interrupt
+        "cpsie f",              // enable Fault interrupt
         "dsb",
         "isb",
-        "svc 0",
+        "svc 0",                // trigger SVC interrupt
         "nop",
         "nop"
     )
 }
 
-pub unsafe fn check_stack_overflow(
-    stack_base: *mut StackType, 
-    task_name: &[u8; 16]) {
-    for i in 0..STACK_CHECK_WORDS {
-        if stack_base.add(i).read() != STACK_FILL_BYTE {
-            handle_stack_overflow();
-        }
-    }
-}
-
-fn handle_stack_overflow() {
-    loop{}
-}
-
-
+// handle SVC interrupt
 #[unsafe(naked)]
 #[export_name = "SVCall"]
 pub unsafe extern "C" fn svc_handler() {
     naked_asm!(
-        "ldr r3, ={current_tcb}",
-        "ldr r1, [r3]",
-        "ldr r0, [r1]",
-        "ldmia r0!, {{r4-r11}}",
-        "msr psp, r0",
+        "ldr r3, ={current_tcb}", // r3 = &CURRENT_TCB
+        "ldr r1, [r3]",           // r1 = CURRENT_TCB
+        "ldr r0, [r1]",           // r0 = (*CURRENT_TCB).top_of_stack
+        "ldmia r0!, {{r4-r11}}",  // pop r4-r11 out of stack
+        "msr psp, r0",            // psp = r0: psp pointed to the hardware stack frame
         "isb",
-        "mov r0, #0",
-        "msr basepri, r0",
-        "orr r14, r14, #0xD",
-        "bx r14",
+        "mov r0, #0",             // r0 = #0
+        "msr basepri, r0",        // enable all interrupts
+        "orr r14, r14, #0xD",     // set Thread, PSP
+        "bx r14",                 // automatically pop r0-r3, r12, PC, LR, xPSR
         current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
     )
-}
+}   // (then run current task)
 
+
+// function need swich because of sys_tick or schedule..
 #[unsafe(naked)]
 #[export_name = "PendSV"]
-pub unsafe extern "C" fn pend_sv_handler() {
+pub unsafe extern "C" fn pend_sv_handler() { 
     naked_asm!(
-        "mrs r0, psp",
+        "mrs r0, psp",            // r0 = psp
         "isb",
-        "ldr r3, ={current_tcb}",
-        "ldr r2, [r3]",
-        "stmdb r0!, {{r4-r11}}",
-        "str r0, [r2]",
+        "ldr r3, ={current_tcb}", // get &CURRENT_TCB
+        "ldr r2, [r3]",           // get CURRENT_TCB
+        "stmdb r0!, {{r4-r11}}",  // push r4-r11 into stack
+        "str r0, [r2]",           // save new stack top back to (*CURRENT_TCB).top_of_stack
         
-        "stmdb sp!, {{r3, r14}}",
-        "mov r0, #{max_pri}",
-        "msr basepri, r0",
+        "stmdb sp!, {{r3, r14}}", // save r3, r14(`bl` will change r14)
+        "mov r0, #{max_pri}",     // r0 = MAX_SYSCALL_INTERRUPT_PRIORITY
+        "msr basepri, r0",        // disable all interrupts
         "dsb",
         "isb",
-        "bl {switch}",
-        "mov r0, #0",
-        "msr basepri, r0",
-        "ldmia sp!, {{r3, r14}}",
+        "bl {switch}",            // call switch function: select highest priority(mainly)
+        "mov r0, #0",             // r0 = #0
+        "msr basepri, r0",        // enable all interrupts
+        "ldmia sp!, {{r3, r14}}", // recover r3, r14
         
-        "ldr r1, [r3]",
-        "ldr r0, [r1]",
-        "ldmia r0!, {{r4-r11}}",
-        "msr psp, r0",
+        "ldr r1, [r3]",           // r1 = new CURRENT_TCB(because r3 stores address)
+        "ldr r0, [r1]",           // r0 = new (*CURRENT_TCB).top_of_stack
+        "ldmia r0!, {{r4-r11}}",  // pop r4-r11
+        "msr psp, r0",            // psp = r0
         "isb",
-        "bx r14",
+        "bx r14",                 // automically pop the rest of registers
         "nop",
         current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
         max_pri = const crate::rtos::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
         switch = sym crate::rtos::kernel::scheduler::switch_context,
-    )
-}
+    )  
+}   // (then run current task)
 
 #[export_name = "SysTick"]
 pub unsafe extern "C" fn sys_tick_handler() {
