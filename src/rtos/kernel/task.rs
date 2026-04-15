@@ -17,10 +17,12 @@ pub enum TaskState{
 pub struct TCB {
     pub top_of_stack: *mut StackType,
     pub state_list_item: ListItem<TCB>,
+    pub event_list_item: ListItem<TCB>,
     pub stack: *mut StackType,
     pub name: [u8; 16],
     pub ticks_to_delay: TickType,
     pub priority: UBaseType,
+    pub base_priority: UBaseType,
     pub state: TaskState
 }
 
@@ -29,10 +31,12 @@ impl TCB {
         TCB {
             top_of_stack: core::ptr::null_mut(),
             state_list_item: ListItem::new(),
+            event_list_item: ListItem::new(),
             stack: core::ptr::null_mut(),
             name: [0u8; 16],
             ticks_to_delay: 0,
             priority: 0, 
+            base_priority: 0,
             state: TaskState::None 
         }
     }
@@ -61,6 +65,11 @@ impl TCB {
         // initialize list node
         self.state_list_item = ListItem::new();
         self.state_list_item.owner = self_ptr;
+        
+        // 
+        self.base_priority = priority;
+        self.event_list_item = ListItem::new();
+        self.event_list_item.owner = self_ptr;
     
         // initialize stack
         for i in 0..stack_depth {

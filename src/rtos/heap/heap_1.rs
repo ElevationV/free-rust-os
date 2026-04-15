@@ -68,7 +68,6 @@ pub struct GlobalHeap1<const N: usize> {
     inner: UnsafeCell<Heap1<N>>,
 }
 
-// SAFETY: single-core Cortex-M3; caller guarantees critical section.
 unsafe impl<const N: usize> Sync for GlobalHeap1<N> {}
 
 impl<const N: usize> GlobalHeap1<N> {

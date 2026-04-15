@@ -26,8 +26,8 @@ pub static mut READY_LISTS: [List<TCB>; 5] = [
 // when TICK_COUNT overflows back to 0, the two pointers are swapped
 static mut DELAY_LIST_1: List<TCB> = List::new();
 static mut DELAY_LIST_2: List<TCB> = List::new();
-static mut CURRENT_DELAY_LIST: *mut List<TCB> = core::ptr::null_mut();
-static mut OVERFLOW_DELAY_LIST: *mut List<TCB> = core::ptr::null_mut();
+pub(crate) static mut CURRENT_DELAY_LIST: *mut List<TCB> = core::ptr::null_mut();
+pub(crate) static mut OVERFLOW_DELAY_LIST: *mut List<TCB> = core::ptr::null_mut();
 
 // Suspend list
 static mut SUSPENDED_LIST: List<TCB> = List::new();
@@ -63,7 +63,6 @@ pub unsafe fn start() {
     port::start_scheduler();
 }
 
-
 // Task state transitions:
 //
 //   create_task          : None      -> Ready
@@ -75,6 +74,7 @@ pub unsafe fn start() {
 //   task_suspend         : Delayed   -> Suspended  (discards remaining delay)
 //   task_resume          : Suspended -> Ready
 // 
+
 pub unsafe fn create_task(
     task_fn: unsafe extern "C" fn(*mut ()),
     name: &str,
