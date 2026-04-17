@@ -11,21 +11,18 @@ use crate::rtos::kernel::scheduler::{
     CURRENT_TCB, TICK_COUNT,
     CURRENT_DELAY_LIST, OVERFLOW_DELAY_LIST,
     READY_LISTS,
-    abort_delay, record_ready_priority, clear_ready_priority,
+    record_ready_priority, clear_ready_priority,
 };
 use crate::rtos::port;
 
 pub struct Semaphore {
     count: UBaseType,
     max_count: UBaseType,
-    // Tasks waiting to take this semaphore, sorted by priority descending.
-    // event_list_item.value = PORT_MAX_DELAY - priority
-    // so list.insert() keeps highest-priority task at the head. 
     wait_list: List<TCB>,
 }
 
 impl Semaphore {
-    // binary semaphore: max = 1, initial count = 1 (available).
+    // binary semaphore: max = 1, initial count = 1
     pub const fn new_binary() -> Self {
         Semaphore {
             count: 1,
@@ -35,7 +32,7 @@ impl Semaphore {
     }
 
     // Counting semaphore.
-    // `initial` is clamped to `max` if it exceeds it.
+    // `initial` is clamped to `max` if it exceeds it
     pub const fn new_counting(max: UBaseType, initial: UBaseType) -> Self {
         let count = if initial > max { max } else { initial };
         Semaphore {
@@ -49,9 +46,7 @@ impl Semaphore {
         self.wait_list.init();
     }
 
-
-    // FreeRTOS xSemaphoreTake flow:
-    //
+    
     //  loop {
     //    enter critical
     //    if count > 0 {
@@ -66,7 +61,7 @@ impl Semaphore {
     //    // place current task on wait_list AND delay list
     //    place_on_event_list(timeout)
     //    exit critical
-    //    trigger PendSV  ← yields here, resumes below after being woken
+    //    trigger PendSV <- yields here, resumes below after being woken
     //    // woken by give() or by tick timeout
     //    if timed out { return false }
     //    // else loop and try to take again
@@ -76,15 +71,13 @@ impl Semaphore {
     /// Blocks up to `timeout` ticks. Use `PORT_MAX_DELAY` to wait forever.
     /// Returns `true` if taken, `false` if timed out.
     pub unsafe fn take(&mut self, timeout: TickType) -> bool {
-        // record the entry tick so we can track elapsed time across spurious wakeups.
         let entry_tick = TICK_COUNT;
-        // remaining ticks we are still willing to wait.
         let mut remaining = timeout;
 
         loop {
             port::enter_critical();
 
-            // fast path: semaphore is available.
+            // semaphore is available.
             if self.count > 0 {
                 self.count -= 1;
                 port::exit_critical();
@@ -97,21 +90,21 @@ impl Semaphore {
                 return false;
             }
 
-            // place current task on both the semaphore wait_list and delay list.
+            // place current task on both the semaphore wait_list and delay list
             self.place_on_event_list(remaining);
 
             port::exit_critical();
 
-            // execution resumes here after give() or timeout.
+            // yield
             port::trigger_pendsv();
             port::instruction_sync();
 
             // check whether we were woken by a timeout or by give().
-            // give() clears event_list_item.ctner before moving the task to
-            // the ready list, so a non-null ctner means we timed out.
+            // give() clears event_list_item.ctner before moving the task to the ready list, 
+            // so a non-null ctner means we timed out
             let timed_out = !(*CURRENT_TCB).event_list_item.ctner.is_null();
             if timed_out {
-                // Remove ourselves from the wait_list (we are no longer waiting).
+                // Remove ourselves from the wait_list (we are no longer waiting)
                 (*CURRENT_TCB).event_list_item.remove_in_list();
                 return false;
             }
@@ -131,8 +124,6 @@ impl Semaphore {
     }
 
 
-    // FreeRTOS xSemaphoreGive flow:
-    //
     //  enter critical
     //  if wait_list non-empty {
     //    remove highest-priority waiter from wait_list AND delay list
@@ -145,10 +136,9 @@ impl Semaphore {
     //  exit critical
     //  return true
 
-    /// release the semaphore.
+    /// release the semaphore
     /// wakes the highest-priority waiting task, or increments count if none.
-    /// returns `false` if count would exceed `max_count` (only relevant for
-    /// counting semaphores with no waiters).
+    /// returns `false` if count would exceed `max_count` (only relevant for counting semaphores with no waiters)
     pub unsafe fn give(&mut self) -> bool {
         port::enter_critical();
 

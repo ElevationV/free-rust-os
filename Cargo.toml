@@ -17,3 +17,7 @@ panic = "abort"
 opt-level = 0
 debug = true
 panic = "abort"
+
+[features]
+default = ["cortex-m3"]
+cortex-m3 = []
