@@ -21,3 +21,4 @@ panic = "abort"
 [features]
 default = ["cortex-m3"]
 cortex-m3 = []
+cortex-m7 = [] 

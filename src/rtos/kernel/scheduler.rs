@@ -115,7 +115,7 @@ pub unsafe fn task_delay(ticks: TickType) {
     (*CURRENT_TCB).state = TaskState::Delayed;
 
     port::enable_interrupts();
-    port::trigger_pendsv();
+    port::task_yield();
     port::instruction_sync();
 }
 
@@ -140,7 +140,7 @@ pub unsafe fn abort_delay(tcb: *mut TCB) {
     (*tcb).state = TaskState::Ready;
     
     if priority >= (*CURRENT_TCB).priority {
-        port::trigger_pendsv();
+        port::task_yield();
     }
 }
 
@@ -171,7 +171,7 @@ pub unsafe fn task_suspend(tcb: *mut TCB) {
     SUSPENDED_LIST.insert_end(list_item);
     
     if tcb == CURRENT_TCB {
-        port::trigger_pendsv();
+        port::task_yield();
         port::instruction_sync();
     }
 }
@@ -191,7 +191,7 @@ pub unsafe fn task_resume(tcb: *mut TCB) {
     (*tcb).state = TaskState::Ready;
  
     if priority >= (*CURRENT_TCB).priority {
-        port::trigger_pendsv();
+        port::task_yield();
     }
 }
 
@@ -277,6 +277,6 @@ pub(crate) unsafe fn tick() {
     }
 
     if need_switch {
-        port::trigger_pendsv();
+        port::task_yield();
     }
 }
