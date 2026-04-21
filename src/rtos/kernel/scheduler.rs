@@ -87,7 +87,7 @@ pub unsafe fn create_task(
 
     (*tcb).init(task_fn, core::ptr::null_mut(), stack, stack_depth, prio, name);
     record_ready_priority(prio);
-    READY_LISTS[prio as usize].insert_end(&raw mut (*tcb).state_list_item);
+    READY_LISTS[prio as usize].insert_before_index(&raw mut (*tcb).state_list_item);
     (*tcb).state = TaskState::Ready;
 }
 
@@ -135,7 +135,7 @@ pub unsafe fn abort_delay(tcb: *mut TCB) {
     // put it into ready list
     let priority = (*tcb).priority;
     (*list_item).value = priority;
-    READY_LISTS[priority as usize].insert_end(list_item);
+    READY_LISTS[priority as usize].insert_before_index(list_item);
     record_ready_priority(priority);
     (*tcb).state = TaskState::Ready;
     
@@ -168,7 +168,7 @@ pub unsafe fn task_suspend(tcb: *mut TCB) {
     }
     // put it into suspend list
     (*tcb).state = TaskState::Suspended;
-    SUSPENDED_LIST.insert_end(list_item);
+    SUSPENDED_LIST.insert_before_index(list_item);
     
     if tcb == CURRENT_TCB {
         port::task_yield();
@@ -186,7 +186,7 @@ pub unsafe fn task_resume(tcb: *mut TCB) {
     // put it into ready list
     let priority = (*tcb).priority;
     (*list_item).value = priority as TickType;
-    READY_LISTS[priority as usize].insert_end(list_item);
+    READY_LISTS[priority as usize].insert_before_index(list_item);
     record_ready_priority(priority);
     (*tcb).state = TaskState::Ready;
  
@@ -258,7 +258,7 @@ pub(crate) unsafe fn tick() {
         // put it into ready list
         (*head).value = (*tcb).priority as TickType;
         let priority = (*tcb).priority;
-        READY_LISTS[priority as usize].insert_end(&raw mut (*tcb).state_list_item);
+        READY_LISTS[priority as usize].insert_before_index(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority);
         (*tcb).state = TaskState::Ready;
 

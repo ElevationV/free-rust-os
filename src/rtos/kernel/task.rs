@@ -16,12 +16,16 @@ pub enum TaskState{
 #[repr(C)]
 pub struct TCB {
     pub top_of_stack: *mut StackType,
+    // state list, such as READY_LISTS[], *_DELAY_LIST, SUSPENDED_LIST ..
     pub state_list_item: ListItem<TCB>,
+    // event list, such as pended by mutex, seamphore ..
     pub event_list_item: ListItem<TCB>,
     pub stack: *mut StackType,
     pub name: [u8; 16],
     pub ticks_to_delay: TickType,
+    // current priority, may change because of inherit
     pub priority: UBaseType,
+    // base priority, not change unless necessary
     pub base_priority: UBaseType,
     pub state: TaskState
 }

@@ -71,7 +71,7 @@ impl Semaphore {
             port::task_yield();
             port::instruction_sync();
 
-            // check whether we were woken by a timeout or by give()
+            // check whether woken by a timeout or by `give()`
             // give() clears event_list_item.ctner before moving the task to the ready list, 
             // so a non-null ctner means we timed out
             let timed_out = !(*CURRENT_TCB).event_list_item.ctner.is_null();

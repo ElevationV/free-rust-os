@@ -14,6 +14,7 @@ use crate::rtos::kernel::scheduler::{
 };
 use crate::rtos::port;
 
+// queue type initialize
 #[macro_export]
 macro_rules! queue_of {
     ($T:ty, $CAP:expr) => {
@@ -25,6 +26,7 @@ macro_rules! queue_of {
     };
 }
 
+// queue hadle type initialize
 #[macro_export]
 macro_rules! queue_handle_of {
     ($T:ty, $CAP:expr) => {
@@ -50,13 +52,10 @@ pub struct Queue<
     recv_wait_list: List<TCB>,
 }
 
-unsafe impl<const IS: usize, const CAP: usize, const SS: usize> Sync
-    for Queue<IS, CAP, SS> {}
-unsafe impl<const IS: usize, const CAP: usize, const SS: usize> Send
-    for Queue<IS, CAP, SS> {}
+unsafe impl<const IS: usize, const CAP: usize, const SS: usize> Sync for Queue<IS, CAP, SS> {}
+unsafe impl<const IS: usize, const CAP: usize, const SS: usize> Send for Queue<IS, CAP, SS> {}
 
-impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize>
-    Queue<ITEM_SIZE, CAPACITY, STORAGE_SIZE>
+impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Queue<ITEM_SIZE, CAPACITY, STORAGE_SIZE>
 {
     const CHECK: () = assert!(
         STORAGE_SIZE == ITEM_SIZE * CAPACITY,
@@ -90,13 +89,13 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize>
 
         loop {
             port::enter_critical();
-
+            // queue not full
             if self.count < CAPACITY {
                 let dst = self.storage.as_mut_ptr().add(self.tail * ITEM_SIZE);
                 core::ptr::copy_nonoverlapping(item_ptr, dst, ITEM_SIZE);
                 self.tail = (self.tail + 1) % CAPACITY;
                 self.count += 1;
-
+                // wake up receiver
                 if self.recv_wait_list.items_num > 0 {
                     Self::wake_waiter(&raw mut self.recv_wait_list);
                 }
@@ -109,6 +108,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize>
                 return false;
             }
 
+            // queue is full, pend the receiver
             Self::place_on_event_list(&raw mut self.send_wait_list, remaining);
             port::exit_critical();
             port::task_yield();

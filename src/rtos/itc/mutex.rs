@@ -43,6 +43,7 @@ impl Mutex {
         loop {
             port::enter_critical();
 
+            // no other task hold this mutex
             if self.owner.is_null() {
                 self.owner = CURRENT_TCB;
                 self.recursive_count = 1;
@@ -50,12 +51,14 @@ impl Mutex {
                 return true;
             }
 
+            // current task already hold this task
             if self.owner == CURRENT_TCB {
                 self.recursive_count += 1;
                 port::exit_critical();
                 return true;
             }
             
+            // taker don't want to wait anymore
             if remaining == 0 {
                 port::exit_critical();
                 return false;
@@ -69,13 +72,16 @@ impl Mutex {
 
             port::task_yield();
             port::instruction_sync();
-
+            
+            // check whether woken by a timeout or by give()
+            // give() clears event_list_item.ctner before moving the task to the ready list, 
+            // so a non-null ctner means we timed out
             let timed_out = !(*CURRENT_TCB).event_list_item.ctner.is_null();
             if timed_out {
                 (*CURRENT_TCB).event_list_item.remove_in_list();
                 return false;
             }
-
+            // taker don't want to wait forever
             if timeout != PORT_MAX_DELAY {
                 let elapsed = TICK_COUNT.wrapping_sub(entry_tick);
                 if elapsed >= timeout {
@@ -88,7 +94,7 @@ impl Mutex {
 
     pub unsafe fn give(&mut self) -> bool {
         port::enter_critical();
-
+        // no other task hold this mutex 
         if self.owner != CURRENT_TCB {
             port::exit_critical();
             return false;
@@ -115,23 +121,31 @@ impl Mutex {
         let caller_priority = (*CURRENT_TCB).priority;
         let owner = self.owner;
         let owner_priority = (*owner).priority;
-
+        
+        // mutex owner's priority > caller's
+        // need not inherit
         if caller_priority <= owner_priority {
             return;
         }
-
+        
+        // current owner in ready, need to change it's position in READY_LISTS
         if (*owner).state == TaskState::Ready {
+            // remove in ready list
             (*owner).state_list_item.remove_in_list();
             if READY_LISTS[owner_priority as usize].items_num == 0 {
                 clear_ready_priority(owner_priority);
             }
-
+            
+            // inherit priority
             (*owner).priority = caller_priority;
             (*owner).state_list_item.value = caller_priority as TickType;
-            READY_LISTS[caller_priority as usize]
-                .insert_end(&raw mut (*owner).state_list_item);
+            
+            // insert back into READY_LISTS
+            READY_LISTS[caller_priority as usize].insert_end(&raw mut (*owner).state_list_item);
             record_ready_priority(caller_priority);
         } else {
+            // current owner have already blocked, 
+            // needn't change it's position
             (*owner).priority = caller_priority;
         }
     }
@@ -140,18 +154,21 @@ impl Mutex {
         let owner = self.owner; 
         let base = (*owner).base_priority;
         let current_pri = (*owner).priority;
-
+        // base priority record the original priority(before inherit) for recovery
         if current_pri == base {
             return;
         }
-
-        (*owner).priority = base;
+        
+        // same as before
         if (*owner).state == TaskState::Ready {
             (*owner).state_list_item.remove_in_list();
             if READY_LISTS[current_pri as usize].items_num == 0 {
                 clear_ready_priority(current_pri);
             }
+            
+            (*owner).priority = base;
             (*owner).state_list_item.value = base as TickType;
+            
             READY_LISTS[base as usize].insert_end(&raw mut (*owner).state_list_item);
             record_ready_priority(base);
         }
