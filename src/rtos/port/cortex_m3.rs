@@ -23,8 +23,8 @@ static mut CRITICAL_NESTING: u32 = 0xaaaaaaaa;
 
 // Overflow detection
 // 
-// Verify the lowest `STACK_CHECK_WORDS` words of the stack buffer stillc ontain `STACK_FILL_BYTE`
-// If any word has been overwritten, the stack has grown past its allocated space and an overflow is reported.  
+// Verify the lowest `STACK_CHECK_WORDS` words of the stack buffer still contain `STACK_FILL_BYTE`
+// If any word has been overwritten, the stack has grown past its allocated space and an overflow is reported.
 pub const STACK_FILL_BYTE: StackType = 0xA5A5A5A5;
 const STACK_CHECK_WORDS: usize = 4;
 
@@ -87,7 +87,7 @@ pub unsafe fn exit_critical() {
     }
 }
 
-// tirgger pendsv
+// trigger pendsv
 pub unsafe fn task_yield() {
     NVIC_INT_CTRL.write_volatile(PENDSVSET_BIT);
 }
@@ -198,7 +198,7 @@ unsafe extern "C" fn pend_sv_handler() {
         "ldmia r0!, {{r4-r11}}",  // pop r4-r11
         "msr psp, r0",            // psp = r0
         "isb",
-        "bx r14",                 // automically pop the rest of registers
+        "bx r14",                 // automatically pop the rest of registers
         "nop",
         current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
         max_pri = const crate::rtos::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
