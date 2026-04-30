@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use super::list::ListItem;
-use super::types::{StackType, TickType, UBaseType};
 use crate::rtos::port;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -15,18 +14,18 @@ pub enum TaskState{
 
 #[repr(C)]
 pub struct TCB {
-    pub top_of_stack: *mut StackType,
+    pub top_of_stack: *mut usize,
     // state list, such as READY_LISTS[], *_DELAY_LIST, SUSPENDED_LIST ..
     pub state_list_item: ListItem<TCB>,
     // event list, such as pended by mutex, seamphore ..
     pub event_list_item: ListItem<TCB>,
-    pub stack: *mut StackType,
+    pub stack: *mut usize,
     pub name: [u8; 16],
-    pub ticks_to_delay: TickType,
+    pub ticks_to_delay: usize,
     // current priority, may change because of inherit
-    pub priority: UBaseType,
+    pub priority: usize,
     // base priority, not change unless necessary
-    pub base_priority: UBaseType,
+    pub base_priority: usize,
     pub state: TaskState
 }
 
@@ -49,9 +48,9 @@ impl TCB {
         &mut self,
         task_fn: unsafe extern "C" fn(*mut ()),
         param: *mut (),
-        stack: *mut StackType,
+        stack: *mut usize,
         stack_depth: usize,
-        priority: UBaseType,
+        priority: usize,
         name: &str,
     ) {
         let self_ptr = self as *mut TCB;

@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::types::{StackType, MAX_SYSCALL_INTERRUPT_PRIORITY};
+use crate::rtos::kernel::config::{MAX_SYSCALL_INTERRUPT_PRIORITY};
+use crate::rtos::kernel::config::{SYSTICK_CYCLE};
 use core::arch::{naked_asm};
 
-const INITIAL_XPSR: StackType = 0x01000000; // xPSR: Process State Register
-const START_ADDRESS_MASK: StackType = 0xFFFFFFFE;
+const INITIAL_XPSR: usize = 0x01000000; // xPSR: Process State Register
+const START_ADDRESS_MASK: usize = 0xFFFFFFFE;
 
 const NVIC_SYSPRI2: *mut u32 = 0xE000ED20 as *mut u32; // System Handler Priority Register 2
 const NVIC_PENDSV_PRI: u32 = (255u32) << 16;  // PendSV Priority
@@ -25,7 +26,7 @@ static mut CRITICAL_NESTING: u32 = 0xaaaaaaaa;
 // 
 // Verify the lowest `STACK_CHECK_WORDS` words of the stack buffer still contain `STACK_FILL_BYTE`
 // If any word has been overwritten, the stack has grown past its allocated space and an overflow is reported.
-pub const STACK_FILL_BYTE: StackType = 0xA5A5A5A5;
+pub const STACK_FILL_BYTE: usize = 0xA5A5A5A5;
 const STACK_CHECK_WORDS: usize = 4;
 
 unsafe fn task_exit_error() -> ! {
@@ -33,26 +34,26 @@ unsafe fn task_exit_error() -> ! {
 }
 
 pub unsafe fn initialise_stack(
-    mut top: *mut StackType,
+    mut top: *mut usize,
     task_fn: unsafe extern "C" fn(*mut ()),
     param: *mut (),
-) -> *mut StackType {
+) -> *mut usize {
     // xPSR
     top = top.sub(1);
     top.write(INITIAL_XPSR);
 
     // PC
     top = top.sub(1);
-    top.write((task_fn as StackType) & START_ADDRESS_MASK);
+    top.write((task_fn as usize) & START_ADDRESS_MASK);
 
     // LR
     top = top.sub(1);
-    top.write(task_exit_error as StackType);
+    top.write(task_exit_error as usize);
 
     // clear r12, r3, r2, r1
     top = top.sub(5);
     // r0 = param
-    top.write(param as StackType);
+    top.write(param as usize);
 
     // clear r4-r11
     top = top.sub(8);
@@ -67,7 +68,7 @@ pub unsafe fn start_scheduler() {
     NVIC_SYSPRI2.write_volatile(NVIC_SYSPRI2.read_volatile() | NVIC_SYSTICK_PRI);
     
     // set systick cycle
-    SYSTICK_LOAD.write_volatile(1000 - 1);
+    SYSTICK_LOAD.write_volatile(SYSTICK_CYCLE - 1);
     SYSTICK_CTRL.write_volatile(SYSTICK_CLK_BIT | SYSTICK_INT_BIT | SYSTICK_ENABLE_BIT);
 
     start_first_task();
@@ -94,7 +95,7 @@ pub unsafe fn task_yield() {
 
 // check and handle stackoverflow
 pub unsafe fn check_stack_overflow(
-    stack_base: *mut StackType, 
+    stack_base: *mut usize, 
     task_name: &[u8; 16]) {
     for i in 0..STACK_CHECK_WORDS {
         if stack_base.add(i).read() != STACK_FILL_BYTE {
@@ -201,7 +202,7 @@ unsafe extern "C" fn pend_sv_handler() {
         "bx r14",                 // automatically pop the rest of registers
         "nop",
         current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
-        max_pri = const crate::rtos::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
+        max_pri = const crate::rtos::kernel::config::MAX_SYSCALL_INTERRUPT_PRIORITY,
         switch = sym crate::rtos::kernel::scheduler::switch_context,
     )  
 }   // (then run current task)

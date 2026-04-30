@@ -4,7 +4,7 @@
 use crate::rtos::kernel::{
     list::List,
     task::{TCB, TaskState},
-    types::{TickType, PORT_MAX_DELAY},
+    config::{PORT_MAX_DELAY},
 };
 use crate::rtos::kernel::scheduler::{
     CURRENT_TCB, TICK_COUNT,
@@ -83,7 +83,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
     pub fn is_empty(&self) -> bool  { self.count == 0 }
     pub fn is_full(&self)  -> bool  { self.count == CAPACITY }
 
-    pub unsafe fn send(&mut self, item_ptr: *const u8, timeout: TickType) -> bool {
+    pub unsafe fn send(&mut self, item_ptr: *const u8, timeout: usize) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
 
@@ -131,7 +131,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
     pub unsafe fn send_to_front(
         &mut self,
         item_ptr: *const u8,
-        timeout: TickType,
+        timeout: usize,
     ) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
@@ -176,7 +176,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
         }
     }
 
-    pub unsafe fn receive(&mut self, out_ptr: *mut u8, timeout: TickType) -> bool {
+    pub unsafe fn receive(&mut self, out_ptr: *mut u8, timeout: usize) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
 
@@ -219,7 +219,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
         }
     }
 
-    pub unsafe fn peek(&mut self, out_ptr: *mut u8, timeout: TickType) -> bool {
+    pub unsafe fn peek(&mut self, out_ptr: *mut u8, timeout: usize) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
 
@@ -257,7 +257,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
         }
     }
 
-    unsafe fn place_on_event_list(wait_list: *mut List<TCB>, timeout: TickType) {
+    unsafe fn place_on_event_list(wait_list: *mut List<TCB>, timeout: usize) {
         let tcb = CURRENT_TCB;
         let priority = (*tcb).priority;
 
@@ -297,7 +297,7 @@ impl<const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE: usize> Q
         }
 
         let priority = (*tcb).priority;
-        (*tcb).state_list_item.value = priority as TickType;
+        (*tcb).state_list_item.value = priority as usize;
         READY_LISTS[priority as usize].insert_end(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority);
         (*tcb).state = TaskState::Ready;
@@ -336,19 +336,19 @@ impl<T: Copy, const ITEM_SIZE: usize, const CAPACITY: usize, const STORAGE_SIZE:
 
     pub fn init(&mut self) { self.inner.init(); }
 
-    pub unsafe fn send_t(&mut self, item: T, timeout: TickType) -> bool {
+    pub unsafe fn send_t(&mut self, item: T, timeout: usize) -> bool {
         self.inner.send(&item as *const T as *const u8, timeout)
     }
 
-    pub unsafe fn receive_t(&mut self, out: &mut T, timeout: TickType) -> bool {
+    pub unsafe fn receive_t(&mut self, out: &mut T, timeout: usize) -> bool {
         self.inner.receive(out as *mut T as *mut u8, timeout)
     }
 
-    pub unsafe fn peek_t(&mut self, out: &mut T, timeout: TickType) -> bool {
+    pub unsafe fn peek_t(&mut self, out: &mut T, timeout: usize) -> bool {
         self.inner.peek(out as *mut T as *mut u8, timeout)
     }
 
-    pub unsafe fn send_to_front_t(&mut self, item: T, timeout: TickType) -> bool {
+    pub unsafe fn send_to_front_t(&mut self, item: T, timeout: usize) -> bool {
         self.inner.send_to_front(&item as *const T as *const u8, timeout)
     }
 

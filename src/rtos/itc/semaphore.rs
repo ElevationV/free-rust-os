@@ -4,8 +4,7 @@
 use crate::rtos::kernel::{
     list::List,
     task::{TCB, TaskState},
-    types::{TickType, UBaseType},
-    types::PORT_MAX_DELAY,
+    config::PORT_MAX_DELAY,
 };
 use crate::rtos::kernel::scheduler::{
     CURRENT_TCB, TICK_COUNT,
@@ -16,8 +15,8 @@ use crate::rtos::kernel::scheduler::{
 use crate::rtos::port;
 
 pub struct Semaphore {
-    count: UBaseType,
-    max_count: UBaseType,
+    count: usize,
+    max_count: usize,
     wait_list: List<TCB>,
 }
 
@@ -30,7 +29,7 @@ impl Semaphore {
         }
     }
 
-    pub const fn new_counting(max: UBaseType, initial: UBaseType) -> Self {
+    pub const fn new_counting(max: usize, initial: usize) -> Self {
         let count = if initial > max { max } else { initial };
         Semaphore {
             count,
@@ -44,7 +43,7 @@ impl Semaphore {
     }
 
 
-    pub unsafe fn take(&mut self, timeout: TickType) -> bool {
+    pub unsafe fn take(&mut self, timeout: usize) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
         
@@ -112,7 +111,7 @@ impl Semaphore {
         result
     }
 
-    unsafe fn place_on_event_list(&mut self, timeout: TickType) {
+    unsafe fn place_on_event_list(&mut self, timeout: usize) {
         let tcb = CURRENT_TCB;
         
         // insert into wait_list by priority
@@ -158,7 +157,7 @@ impl Semaphore {
         
         // insert back into READY_LISTS
         let priority = (*tcb).priority;
-        (*tcb).state_list_item.value = priority as TickType;
+        (*tcb).state_list_item.value = priority as usize;
         READY_LISTS[priority as usize].insert_end(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority); 
         (*tcb).state = TaskState::Ready;

@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-use super::types::*;
+use super::config::*;
 use core::ptr::null_mut;
 
 #[repr(C)]
 pub struct ListItem<T> {
-    pub value: TickType,
+    pub value: usize,
     pub next: *mut ListItem<T>,
     pub prev: *mut ListItem<T>,
     pub owner: *mut T,
@@ -14,7 +14,7 @@ pub struct ListItem<T> {
 
 #[repr(C)]
 pub struct List<T> {
-    pub items_num: UBaseType,
+    pub items_num: usize,
     pub index_ptr: *mut ListItem<T>,
     pub list_end: ListItem<T>,
 }
@@ -30,7 +30,7 @@ impl<T> ListItem<T> {
         }
     }
 
-    pub fn remove_in_list(&mut self) -> UBaseType {
+    pub fn remove_in_list(&mut self) -> usize {
         if self.ctner == null_mut() {
             return 0;
         }
@@ -52,8 +52,8 @@ impl<T> ListItem<T> {
 
     pub fn set_owner(&mut self, owner: *mut T) { self.owner = owner; }
     pub fn get_owner(&self) -> *mut T { self.owner }
-    pub fn set_value(&mut self, val: TickType) { self.value = val; }
-    pub fn get_value(&self) -> TickType { self.value }
+    pub fn set_value(&mut self, val: usize) { self.value = val; }
+    pub fn get_value(&self) -> usize { self.value }
 }
 
 impl<T> List<T> {

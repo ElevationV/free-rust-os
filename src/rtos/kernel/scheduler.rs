@@ -3,19 +3,18 @@
 
 use super::task::{TCB, TaskState};
 use super::list::{List, ListItem};
-use super::types::{UBaseType, StackType, TickType};
-use super::config::USE_TIME_SLICING;
+use super::config::{USE_TIME_SLICING, MAX_PRIORITIES, IDLE_SHOULD_YIELD, IDLE_STACK_SIZE};
 
-use crate::rtos::{list, port};
+use crate::rtos::{list, port, task_yield};
 
 pub static mut CURRENT_TCB: *mut TCB = core::ptr::null_mut();
-pub static mut TOP_READY_PRIORITY: UBaseType = 0;
-pub static mut TICK_COUNT: TickType = 0;
-pub static mut READY_LISTS: [List<TCB>; 5] = [
+pub static mut TOP_READY_PRIORITY: usize = 0;
+pub static mut TICK_COUNT: usize = 0;
+pub static mut READY_LISTS: [List<TCB>; MAX_PRIORITIES] = [
     List::new(), List::new(), List::new(), List::new(), List::new()
 ];
 
-// Two delay lists to handle TickType(u32) overflow
+// Two delay lists to handle usize(u32) overflow
 //
 // CURRENT_DELAY_LIST points to the active list for the current tick epoch. 
 // A task is inserted here when its wake_time does not overflow
@@ -34,10 +33,14 @@ static mut SUSPENDED_LIST: List<TCB> = List::new();
 
 // IDLE task
 pub static mut IDLE_TCB: TCB = TCB::new();
-pub static mut IDLE_STACK: [StackType; 256] = [0; 256];
+pub static mut IDLE_STACK: [usize; IDLE_STACK_SIZE] = [0; IDLE_STACK_SIZE];
 
 unsafe extern "C" fn idle_task(_param: *mut ()) {
-    loop {}
+    loop {
+        if IDLE_SHOULD_YIELD {
+            task_yield();
+        }
+    }
 }
 
 pub unsafe fn init() {
@@ -78,8 +81,8 @@ pub unsafe fn start() {
 pub unsafe fn create_task(
     task_fn: unsafe extern "C" fn(*mut ()),
     name: &str,
-    priority: UBaseType,
-    stack: *mut StackType,
+    priority: usize,
+    stack: *mut usize,
     stack_depth: usize,
     tcb: *mut TCB,
 ) {
@@ -92,7 +95,7 @@ pub unsafe fn create_task(
 }
 
 
-pub unsafe fn task_delay(ticks: TickType) {
+pub unsafe fn task_delay(ticks: usize) {
     port::disable_interrupts();
 
     let (wake_time, overflowed) = TICK_COUNT.overflowing_add(ticks);
@@ -185,7 +188,7 @@ pub unsafe fn task_resume(tcb: *mut TCB) {
     (*list_item).remove_in_list();
     // put it into ready list
     let priority = (*tcb).priority;
-    (*list_item).value = priority as TickType;
+    (*list_item).value = priority as usize;
     READY_LISTS[priority as usize].insert_before_index(list_item);
     record_ready_priority(priority);
     (*tcb).state = TaskState::Ready;
@@ -195,11 +198,11 @@ pub unsafe fn task_resume(tcb: *mut TCB) {
     }
 }
 
-pub(crate) unsafe fn record_ready_priority(priority: UBaseType) {
+pub(crate) unsafe fn record_ready_priority(priority: usize) {
     TOP_READY_PRIORITY |= 1 << priority;
 }
 
-pub(crate) unsafe fn clear_ready_priority(priority: UBaseType) {
+pub(crate) unsafe fn clear_ready_priority(priority: usize) {
     TOP_READY_PRIORITY &= !(1 << priority);
 }
 
@@ -256,7 +259,7 @@ pub(crate) unsafe fn tick() {
         (*head).remove_in_list();
 
         // put it into ready list
-        (*head).value = (*tcb).priority as TickType;
+        (*head).value = (*tcb).priority as usize;
         let priority = (*tcb).priority;
         READY_LISTS[priority as usize].insert_before_index(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority);

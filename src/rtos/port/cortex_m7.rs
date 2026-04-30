@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::types::{StackType, MAX_SYSCALL_INTERRUPT_PRIORITY};
+use crate::rtos::kernel::config::{StackType, MAX_SYSCALL_INTERRUPT_PRIORITY};
 use core::arch::naked_asm;
 
 const INITIAL_XPSR: StackType = 0x01000000; // xPSR: Process State Register
@@ -241,7 +241,7 @@ unsafe extern "C" fn pend_sv_handler() {
         "bx r14",                  // automatically pop the rest of registers (+ FP frame)
         "nop",
         current_tcb = sym crate::rtos::kernel::scheduler::CURRENT_TCB,
-        max_pri = const crate::rtos::kernel::types::MAX_SYSCALL_INTERRUPT_PRIORITY,
+        max_pri = const crate::rtos::kernel::config::MAX_SYSCALL_INTERRUPT_PRIORITY,
         switch = sym crate::rtos::kernel::scheduler::switch_context,
     )  
 }   // (then run current task)

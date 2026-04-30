@@ -4,7 +4,7 @@
 use crate::rtos::kernel::{
     list::List,
     task::{TCB, TaskState},
-    types::{TickType, UBaseType, PORT_MAX_DELAY},
+    config::{PORT_MAX_DELAY},
 };
 use crate::rtos::kernel::scheduler::{
     CURRENT_TCB, TICK_COUNT,
@@ -17,7 +17,7 @@ use crate::rtos::port;
 pub struct Mutex {
     wait_list: List<TCB>,
     owner: *mut TCB,
-    recursive_count: UBaseType,
+    recursive_count: usize,
 }
 
 unsafe impl Sync for Mutex {}
@@ -36,7 +36,7 @@ impl Mutex {
         self.wait_list.init();
     }
 
-    pub unsafe fn take(&mut self, timeout: TickType) -> bool {
+    pub unsafe fn take(&mut self, timeout: usize) -> bool {
         let entry_tick = TICK_COUNT;
         let mut remaining = timeout;
 
@@ -138,7 +138,7 @@ impl Mutex {
             
             // inherit priority
             (*owner).priority = caller_priority;
-            (*owner).state_list_item.value = caller_priority as TickType;
+            (*owner).state_list_item.value = caller_priority as usize;
             
             // insert back into READY_LISTS
             READY_LISTS[caller_priority as usize].insert_end(&raw mut (*owner).state_list_item);
@@ -167,14 +167,14 @@ impl Mutex {
             }
             
             (*owner).priority = base;
-            (*owner).state_list_item.value = base as TickType;
+            (*owner).state_list_item.value = base as usize;
             
             READY_LISTS[base as usize].insert_end(&raw mut (*owner).state_list_item);
             record_ready_priority(base);
         }
     }
 
-    unsafe fn place_on_event_list(&mut self, timeout: TickType) {
+    unsafe fn place_on_event_list(&mut self, timeout: usize) {
         let tcb = CURRENT_TCB;
         let priority = (*tcb).priority;
         
@@ -215,7 +215,7 @@ impl Mutex {
         self.recursive_count = 1;
 
         let priority = (*tcb).priority;
-        (*tcb).state_list_item.value = priority as TickType;
+        (*tcb).state_list_item.value = priority as usize;
         READY_LISTS[priority as usize].insert_end(&raw mut (*tcb).state_list_item);
         record_ready_priority(priority);
         (*tcb).state = TaskState::Ready;
