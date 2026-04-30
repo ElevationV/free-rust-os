@@ -48,7 +48,7 @@ pub unsafe fn initialise_stack(
 
     // LR
     top = top.sub(1);
-    top.write(task_exit_error as usize);
+    top.write(task_exit_error as (unsafe fn() -> !) as usize);
 
     // clear r12, r3, r2, r1
     top = top.sub(5);
