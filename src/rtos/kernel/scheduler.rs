@@ -96,7 +96,7 @@ pub unsafe fn create_task(
 
 
 pub unsafe fn task_delay(ticks: usize) {
-    port::disable_interrupts();
+    port::enter_critical();
 
     let (wake_time, overflowed) = TICK_COUNT.overflowing_add(ticks);
     (*CURRENT_TCB).ticks_to_delay = wake_time;
@@ -117,12 +117,13 @@ pub unsafe fn task_delay(ticks: usize) {
     }
     (*CURRENT_TCB).state = TaskState::Delayed;
 
-    port::enable_interrupts();
+    port::exit_critical();
     port::task_yield();
     port::instruction_sync();
 }
 
 pub unsafe fn abort_delay(tcb: *mut TCB) {
+    port::enter_critical();
     if (*tcb).state != TaskState::Delayed {
         return;
     }
@@ -141,13 +142,15 @@ pub unsafe fn abort_delay(tcb: *mut TCB) {
     READY_LISTS[priority as usize].insert_before_index(list_item);
     record_ready_priority(priority);
     (*tcb).state = TaskState::Ready;
-    
+
+    port::exit_critical();
     if priority >= (*CURRENT_TCB).priority {
         port::task_yield();
     }
 }
 
 pub unsafe fn task_suspend(tcb: *mut TCB) {
+    port::enter_critical();
     if matches!((*tcb).state, TaskState::None | TaskState::Suspended) {
         return; 
     }
@@ -172,7 +175,8 @@ pub unsafe fn task_suspend(tcb: *mut TCB) {
     // put it into suspend list
     (*tcb).state = TaskState::Suspended;
     SUSPENDED_LIST.insert_before_index(list_item);
-    
+
+    port::exit_critical();
     if tcb == CURRENT_TCB {
         port::task_yield();
         port::instruction_sync();
@@ -180,6 +184,7 @@ pub unsafe fn task_suspend(tcb: *mut TCB) {
 }
 
 pub unsafe fn task_resume(tcb: *mut TCB) {
+    port::enter_critical();
     if (*tcb).state != TaskState::Suspended {
         return;
     }
@@ -192,7 +197,8 @@ pub unsafe fn task_resume(tcb: *mut TCB) {
     READY_LISTS[priority as usize].insert_before_index(list_item);
     record_ready_priority(priority);
     (*tcb).state = TaskState::Ready;
- 
+
+    port::exit_critical();
     if priority >= (*CURRENT_TCB).priority {
         port::task_yield();
     }
