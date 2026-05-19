@@ -16,7 +16,7 @@ pub trait Allocator {
         };
         ptr
     }
- 
+
     fn free(&mut self, ptr: *mut u8);
 }
  

@@ -7,7 +7,6 @@ use cortex_m_rt::entry;
 use cortex_m_semihosting::hprintln;
 use rtos::task::TCB;
 
-
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -43,13 +42,13 @@ fn main() -> ! {
 unsafe extern "C" fn task1(_param: *mut ()) {
     loop {
         hprintln!("Task1 running").ok();
-        rtos::scheduler::task_delay(100000);
+        rtos::scheduler::task_delay(10000);
     }
 }
 
 unsafe extern "C" fn task2(_param: *mut ()) {
     loop {
         hprintln!("Task2 running").ok();
-        rtos::scheduler::task_delay(10000);
+        rtos::scheduler::task_delay(1000);
     }
 }
