@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::rtos::kernel::config::{usize, MAX_SYSCALL_INTERRUPT_PRIORITY};
+use crate::rtos::kernel::config::{MAX_SYSCALL_INTERRUPT_PRIORITY};
 use core::arch::naked_asm;
 
 const INITIAL_XPSR: usize = 0x01000000; // xPSR: Process State Register
