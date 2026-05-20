@@ -143,7 +143,7 @@ unsafe extern "C" fn start_first_task() {
         "msr msp, r0",          // set MSP
 
         "cpsie i",              // enable IRQ interrupt
-        "cpsie f",              // enable Fault interrupt
+        "cpsie f",              // enable Fast interrupt
         "dsb",
         "isb",
         "svc 0",                // trigger SVC interrupt
